@@ -1,30 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #define N 5000
 #define segments 10
-
-/* int niz[N];
-void swap(int i, int j){
-	int pom = niz[i];
-	niz[i] = niz[j];
-	niz[j] = pom;
-}
-
-void kjusort(int lo, int hi){
-
-	int l = lo+1, r = hi, pivot = lo;
-	if(lo >= hi) return;
-
-	while(l <= r){
-		while(l <= hi && niz[l] <= niz[pivot]) ++l;
-		while(r > lo && niz[r] >= niz[pivot]) --r;
-		if(l < r) swap(l,r);
-	}
-	swap(pivot,r);
-	kjusort(lo, r-1);
-	kjusort(r+1, hi);
-} */
 
 void swap (int *x, int *y) {
 	int aux;
@@ -59,17 +36,55 @@ void QuickSort(int a[], int l, int r) {
 	}
 } 
 
+void merge (FILE *pomocni, FILE *output, int puta) {
+	int i=0, j=0, broj, jedan, dva; FILE *aux;
+	aux=fopen("aux.txt", "w+");
+	fscanf(pomocni, "%d", &jedan);
+	fscanf(output, "%d", &dva);
+	while (i<(N/segments) && j<(N/segments*puta)) {
+		if (jedan<=dva) {
+			fprintf(aux, "%d\n", jedan);
+			fscanf(pomocni, "%d", &jedan);
+			i++;
+		} else {
+			fprintf(aux, "%d\n", dva);
+			fscanf(output, "%d", &dva);
+			j++;
+		}
+	}
+	if (i<(N/segments)) fprintf(aux, "%d\n", jedan);
+	if (j<(N/segments*puta)) fprintf(aux, "%d\n", dva);
+	while (i<(N/segments)) {
+		fscanf(pomocni, "%d", &broj);
+		fprintf(aux, "%d\n", broj);
+		i++;
+	}
+	while (j<(N/segments*puta)) {
+		fscanf(output, "%d", &broj);
+		fprintf(aux, "%d\n", broj);
+		j++;	
+	} 
+	// aux pretacemo u output
+	fclose(aux); aux=fopen("aux.txt", "r+"); // rewind valjda ne radi kad je u w mode-u	
+	fclose(output); output=fopen("output.txt", "w+"); // reset outputa
+	for (i=0; i<(N/segments*(puta+1)); i++) {
+		fscanf(aux, "%d", &broj);
+		fprintf(output, "%d\n", broj);
+	}
+	fclose(output);
+	fclose(aux); remove("aux.txt");
+}
+
 int main (void) {
 
 	char ime[20];
 	int i,j, broj, niz[N/segments];
-	FILE *pocetni, *pomocni;
+	FILE *pocetni, *pomocni, *output;
 
 	// 1) generiranje pocetnog file-a
 	pocetni=fopen("pocetni.txt","w");
 	for (i=0; i < N; i++) {
-		fprintf(pocetni, "%d", rand());
-		fprintf(pocetni, "\n");
+		fprintf(pocetni, "%d\n", rand());
 	}
 	fclose(pocetni);
 
@@ -80,33 +95,50 @@ int main (void) {
 		pomocni = fopen(ime, "w");
 		for(i=j*(N/segments); i<(j+1)*(N/segments); i++) {
 			fscanf(pocetni, "%d", &broj);
-			fprintf(pomocni, "%d", broj);
-			fprintf(pomocni, "\n");
+			fprintf(pomocni, "%d\n", broj);
 		}
 		fclose(pomocni);
 
 		//ucitavanje male datoteke u gl mem
-		pomocni = fopen(ime, "r"); //zasto rewind ne radi???
+		pomocni = fopen(ime, "r+"); 
 		for (i=0; i<(N/segments); i++) {
 			fscanf(pomocni, "%d", &broj);
 			niz[i]=broj;
 		}
-		fclose(pomocni);
 
-		// 3) quicksort malih datoteka
+		// 3) quicksort male datoteke, tj. malog niza
 		QuickSort(niz, 0, (N/segments)-1);
 
+		rewind(pomocni);
 		//ponovno ispisivanje male datoteke na disk
-		pomocni = fopen(ime, "w");
 		for (i=0; i<(N/segments); i++) {
 			fprintf(pomocni, "%d\n", niz[i]);
 		}
+
 		fclose(pomocni);
 	}
-	fclose(pocetni);
 	
-	// 4) merge
-	
+	// kreiranje output file-a (sigurno ima jedna mala datoteka)
+	output=fopen("output.txt","w");
+	pomocni=fopen("1.txt", "r");
+	for(i=0; i<(N/segments); i++) { //while !feof ne radi jer ima \n na kraju svakog filea
+		fscanf(pomocni, "%d", &broj);
+		fprintf(output, "%d\n", broj);
+	}
+	fclose(output); fclose(pomocni); remove("1.txt");
 
+	// 4) merge-anje s preostalim datotekama (ako ih ima :))
+
+	for(j=1; j<segments; j++) {
+		output = fopen("output.txt","r+"); 
+		sprintf(ime, "%d.txt", j+1);
+		pomocni = fopen(ime, "r+");
+		merge(pomocni, output, j);
+		fclose(pomocni);
+		remove(ime);
+	}
+	
+	fclose(pocetni);
+	remove("pocetni.txt");
 	return 0;
 }
